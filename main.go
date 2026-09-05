@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"crypto/tls"
 
 	firebase "firebase.google.com/go/v4"
 	"github.com/redis/go-redis/v9"
@@ -59,6 +60,12 @@ func main() {
 		redisOpt, err = redis.ParseURL(redisAddr)
 		if err != nil {
 			log.Fatalf("error parsing redis url: %v\n", err)
+		}
+		// บังคับใช้ TLS หากเป็น Upstash
+		if strings.Contains(redisAddr, "upstash.io") && redisOpt.TLSConfig == nil {
+			redisOpt.TLSConfig = &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			}
 		}
 	} else {
 		redisOpt = &redis.Options{

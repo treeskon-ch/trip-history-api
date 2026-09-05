@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	firebase "firebase.google.com/go/v4"
 	"github.com/redis/go-redis/v9"
@@ -52,11 +53,22 @@ func main() {
 		redisAddr = "localhost:6379"
 	}
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     redisAddr,
-		Password: os.Getenv("REDIS_PASSWORD"),
-		DB:       0,
-	})
+	var redisOpt *redis.Options
+	if strings.HasPrefix(redisAddr, "redis://") || strings.HasPrefix(redisAddr, "rediss://") {
+		var err error
+		redisOpt, err = redis.ParseURL(redisAddr)
+		if err != nil {
+			log.Fatalf("error parsing redis url: %v\n", err)
+		}
+	} else {
+		redisOpt = &redis.Options{
+			Addr:     redisAddr,
+			Password: os.Getenv("REDIS_PASSWORD"),
+			DB:       0,
+		}
+	}
+
+	redisClient := redis.NewClient(redisOpt)
 
 	_, err = redisClient.Ping(ctx).Result()
 	if err != nil {

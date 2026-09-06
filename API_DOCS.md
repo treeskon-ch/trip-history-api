@@ -183,6 +183,7 @@ http://localhost:8080
 - **Body** (JSON):
   ```json
   {
+    "userId": "wXyZ1234abc...",
     "title": "รถยางแตก",
     "description": "เกิดอุบัติเหตุยางรั่วที่ถนนบางนา-ตราด"
   }

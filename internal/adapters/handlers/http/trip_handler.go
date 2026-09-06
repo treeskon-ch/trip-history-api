@@ -188,17 +188,45 @@ func (h *TripHandler) CheckIn(c *gin.Context) {
 
 func (h *TripHandler) ReportIssue(c *gin.Context) {
 	tripID := c.Param("id")
-	var issue domain.Issue
-	if err := c.ShouldBindJSON(&issue); err != nil {
+	var req struct {
+		UserID      string `json:"userId" binding:"required"`
+		Title       string `json:"title" binding:"required"`
+		Description string `json:"description"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	issue.TripID = tripID
+
+	issue := domain.Issue{
+		TripID:      tripID,
+		Title:       req.Title,
+		Description: req.Description,
+		ReportedAt:  time.Now(),
+	}
 
 	err := h.tripService.ReportIssue(c.Request.Context(), issue)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to report issue"})
 		return
 	}
+
+	// Broadcast issue to WebSocket
+	if h.trackingHub != nil {
+		payloadMap := map[string]interface{}{
+			"type":        "issue",
+			"userId":      req.UserID,
+			"tripId":      tripID,
+			"title":       req.Title,
+			"description": req.Description,
+			"reportedAt":  issue.ReportedAt.Format(time.RFC3339),
+		}
+		payload, _ := json.Marshal(payloadMap)
+		h.trackingHub.Broadcast <- ws.Message{
+			UserID:  req.UserID,
+			Payload: payload,
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{"status": "Issue reported successfully"})
 }

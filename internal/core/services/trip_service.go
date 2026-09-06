@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"trip-history-api/internal/core/domain"
@@ -41,6 +42,16 @@ func (s *tripService) StartTrip(ctx context.Context, userID string, planID strin
 
 func (s *tripService) EndTrip(ctx context.Context, tripID string, distance float64, imageURL string) error {
 	now := time.Now()
+
+	// Calculate actual distance from GPS points
+	locations, err := s.tripRepo.GetLocationHistory(ctx, tripID)
+	if err == nil && len(locations) > 0 {
+		calculatedDistance := calculateTotalDistance(locations)
+		if calculatedDistance > 0 {
+			distance = calculatedDistance
+		}
+	}
+
 	updateData := map[string]interface{}{
 		"status":   "completed",
 		"endTime":  now,
@@ -82,4 +93,31 @@ func (s *tripService) CheckIn(ctx context.Context, checkIn domain.CheckIn) error
 func (s *tripService) ReportIssue(ctx context.Context, issue domain.Issue) error {
 	issue.ReportedAt = time.Now()
 	return s.tripRepo.ReportIssue(ctx, issue)
+}
+
+func calculateTotalDistance(locations []domain.LocationUpdate) float64 {
+	if len(locations) < 2 {
+		return 0.0
+	}
+
+	var totalDistance float64
+	for i := 0; i < len(locations)-1; i++ {
+		totalDistance += haversine(locations[i].Lat, locations[i].Lng, locations[i+1].Lat, locations[i+1].Lng)
+	}
+	return totalDistance
+}
+
+func haversine(lat1, lon1, lat2, lon2 float64) float64 {
+	const R = 6371 // Earth's radius in kilometers
+	
+	dLat := (lat2 - lat1) * (math.Pi / 180.0)
+	dLon := (lon2 - lon1) * (math.Pi / 180.0)
+
+	lat1 = lat1 * (math.Pi / 180.0)
+	lat2 = lat2 * (math.Pi / 180.0)
+
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) + math.Sin(dLon/2)*math.Sin(dLon/2)*math.Cos(lat1)*math.Cos(lat2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	return R * c
 }

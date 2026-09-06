@@ -148,7 +148,17 @@ func (r *tripRepository) ClearAllTrips(ctx context.Context) error {
 		doc.Ref.Delete(ctx)
 	}
 
-	// 3. Delete all trip documents
+	// 3. Delete all issues across all trips (Collection Group query)
+	iterIssues := r.client.CollectionGroup("issues").Documents(ctx)
+	for {
+		doc, err := iterIssues.Next()
+		if err == iterator.Done || err != nil {
+			break
+		}
+		doc.Ref.Delete(ctx)
+	}
+
+	// 4. Delete all trip documents
 	iterTrips := r.client.Collection("trips").Documents(ctx)
 	for {
 		doc, err := iterTrips.Next()
